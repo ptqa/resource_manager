@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/bradfitz/slice"
+	//"github.com/bradfitz/slice"
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"log"
@@ -23,6 +23,7 @@ type resource struct {
 
 type aresource struct {
 	members []resource
+	free    int
 }
 
 func test() string {
@@ -50,21 +51,30 @@ func main() {
 	fmt.Printf("Loaded config: port %d, limit %d\n", appConfig.Port, appConfig.Limit)
 
 	// Init arr
-	arr := aresource{members: []resource{}}
+	arr := aresource{members: []resource{}, free: 0}
 	for i := 0; i < appConfig.Limit; i++ {
-		r := resource{i, false, "owner1"}
+		r := resource{i + 1, false, "owner1"}
 		arr.members = append(arr.members, r)
+		arr.free++
 	}
 
-	//fmt.Println("Allocated arr size:", len(arr))
-	arr.members[2] = resource{99, true, "wut"}
-	arr.members[1] = resource{0, true, "wut2"}
-	slice.Sort(arr.members, arr.Less)
+	//slice.Sort(arr.members, arr.Less)
 	fmt.Println("arr: ", arr)
 
+	// Starting gin gonic
 	server := gin.Default()
 	server.GET("/test", func(c *gin.Context) {
 		c.String(http.StatusOK, test())
+	})
+
+	server.GET("/allocate/:name", func(c *gin.Context) {
+		http_status := http.StatusOK
+		http_msg := "OK\n"
+		if arr.free <= 0 {
+			http_status = http.StatusServiceUnavailable
+			http_msg = "Out of resources.\n"
+		}
+		c.String(http_status, http_msg)
 	})
 
 	/*
