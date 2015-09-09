@@ -17,13 +17,17 @@ type config struct {
 
 type resource struct {
 	id    int
-	state bool
+	free  bool
 	owner string
+}
+
+type message struct {
+	data resource
+	ch   chan bool
 }
 
 type aresource struct {
 	members []resource
-	free    int
 }
 
 func test() string {
@@ -31,10 +35,38 @@ func test() string {
 }
 
 func (a *aresource) Less(i, j int) bool {
-	if a.members[i].state == true && a.members[j].state == false {
+	if a.members[i].free == true && a.members[j].free == false {
 		return true
 	}
 	return false
+}
+
+func (a *aresource) free() (bool, int) {
+	free := false
+	index := -1
+	for i := range a.members {
+		if a.members[i].free == true {
+			free = true
+			index = i
+			break
+		}
+	}
+	return free, index
+}
+
+func worker(c chan message, arr *aresource) {
+	for msg := range c {
+		fmt.Println("Got message ", msg, " for ", arr)
+		current := arr.members[msg.data.id].free
+		if (msg.data.free == false && current == true) || (msg.data.free == true && current == false) {
+			arr.members[msg.data.id] = msg.data
+			msg.ch <- true
+		} else {
+			msg.ch <- true
+		}
+		close(msg.ch)
+	}
+
 }
 
 func main() {
@@ -51,11 +83,14 @@ func main() {
 	fmt.Printf("Loaded config: port %d, limit %d\n", appConfig.Port, appConfig.Limit)
 
 	// Init arr
-	arr := aresource{members: []resource{}, free: 0}
+	arr := aresource{members: []resource{}}
+	var input []chan message
 	for i := 0; i < appConfig.Limit; i++ {
-		r := resource{i + 1, false, "owner1"}
+		r := resource{i + 1, true, "owner1"}
 		arr.members = append(arr.members, r)
-		arr.free++
+		ch := make(chan message, 10)
+		input = append(input, ch)
+		go worker(ch, &arr)
 	}
 
 	//slice.Sort(arr.members, arr.Less)
@@ -69,23 +104,25 @@ func main() {
 
 	server.GET("/allocate/:name", func(c *gin.Context) {
 		http_status := http.StatusOK
-		http_msg := "OK\n"
-		if arr.free <= 0 {
+		http_msg := "Ops.\n"
+		free, i := arr.free()
+		if free == false {
 			http_status = http.StatusServiceUnavailable
 			http_msg = "Out of resources.\n"
+		} else {
+			output := make(chan bool)
+			res := resource{id: i, free: false, owner: c.Param("name")}
+			msg := message{data: res, ch: output}
+			input[i] <- msg
+			result := <-output
+			if result == true {
+				http_msg = "OH YEAH"
+			}
 		}
 		c.String(http_status, http_msg)
 	})
 
 	/*
-		server.GET("/data/", func(c *gin.Context) {
-			data := <-input
-			c.String(http.StatusOK,
-			"Id: %d, Name: %s, Data: %s \n",
-			data.id,
-			data.name,
-			data.data)
-		})
 
 		server.PUT("/data/:id/:name/:data", func(c *gin.Context) {
 			id, err := strconv.Atoi(c.Param("id"))
