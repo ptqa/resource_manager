@@ -62,7 +62,7 @@ func worker(c chan message, arr *aresource) {
 			arr.members[msg.data.id] = msg.data
 			msg.ch <- true
 		} else {
-			msg.ch <- true
+			msg.ch <- false
 		}
 		close(msg.ch)
 	}
@@ -103,37 +103,28 @@ func main() {
 	})
 
 	server.GET("/allocate/:name", func(c *gin.Context) {
-		http_status := http.StatusOK
+		http_status := http.StatusCreated
 		http_msg := "Ops.\n"
-		free, i := arr.free()
-		if free == false {
-			http_status = http.StatusServiceUnavailable
-			http_msg = "Out of resources.\n"
-		} else {
-			output := make(chan bool)
-			res := resource{id: i, free: false, owner: c.Param("name")}
-			msg := message{data: res, ch: output}
-			input[i] <- msg
-			result := <-output
-			if result == true {
-				http_msg = "OH YEAH"
+		for {
+			free, i := arr.free()
+			if free == false {
+				http_status = http.StatusServiceUnavailable
+				http_msg = "Out of resources.\n"
+				break
+			} else {
+				output := make(chan bool)
+				res := resource{id: i, free: false, owner: c.Param("name")}
+				msg := message{data: res, ch: output}
+				input[i] <- msg
+				result := <-output
+				if result == true {
+					http_msg = fmt.Sprintf("r%d\n", i+1)
+					break
+				}
 			}
 		}
 		c.String(http_status, http_msg)
 	})
 
-	/*
-
-		server.PUT("/data/:id/:name/:data", func(c *gin.Context) {
-			id, err := strconv.Atoi(c.Param("id"))
-			if err != nil {
-				c.String(http.StatusInternalServerError, "Can't convert id to integer\n")
-			}
-			go func() {
-				input <- Data{id: id, name: c.Param("name"), data: c.Param("data")}
-			}()
-			c.String(http.StatusOK, "OK!")
-		})
-	*/
 	server.Run(fmt.Sprintf(":%d", appConfig.Port))
 }
