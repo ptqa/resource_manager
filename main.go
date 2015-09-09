@@ -30,10 +30,6 @@ type aresource struct {
 	members []resource
 }
 
-func test() string {
-	return "Tests ok\n"
-}
-
 func (a *aresource) Less(i, j int) bool {
 	if a.members[i].free == true && a.members[j].free == false {
 		return true
@@ -86,7 +82,7 @@ func main() {
 	arr := aresource{members: []resource{}}
 	var input []chan message
 	for i := 0; i < appConfig.Limit; i++ {
-		r := resource{i + 1, true, "owner1"}
+		r := resource{i + 1, true, ""}
 		arr.members = append(arr.members, r)
 		ch := make(chan message, 10)
 		input = append(input, ch)
@@ -98,9 +94,6 @@ func main() {
 
 	// Starting gin gonic
 	server := gin.Default()
-	server.GET("/test", func(c *gin.Context) {
-		c.String(http.StatusOK, test())
-	})
 
 	server.GET("/allocate/:name", func(c *gin.Context) {
 		http_status := http.StatusCreated
