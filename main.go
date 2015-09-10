@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"log"
-	"net/http"
+	"strconv"
 )
 
 type config struct {
@@ -30,32 +30,24 @@ type aresource struct {
 	members []resource
 }
 
+/*
 func (a *aresource) Less(i, j int) bool {
 	if a.members[i].free == true && a.members[j].free == false {
 		return true
 	}
 	return false
 }
+*/
 
-func (a *aresource) free() (bool, int) {
-	free := false
-	index := -1
-	for i := range a.members {
-		if a.members[i].free == true {
-			free = true
-			index = i
-			break
-		}
-	}
-	return free, index
-}
-
-func worker(c chan message, arr *aresource) {
+func worker(c <-chan message, arr *aresource, freeList chan<- int) {
 	for msg := range c {
-		fmt.Println("Got message ", msg, " for ", arr)
+		//fmt.Println("Got message ", msg, " for ", arr)
 		current := arr.members[msg.data.id].free
-		if (msg.data.free == false && current == true) || (msg.data.free == true && current == false) {
+		if msg.data.free != current {
 			arr.members[msg.data.id] = msg.data
+			if msg.data.free == true {
+				freeList <- msg.data.id
+			}
 			msg.ch <- true
 		} else {
 			msg.ch <- false
@@ -63,6 +55,46 @@ func worker(c chan message, arr *aresource) {
 		close(msg.ch)
 	}
 
+}
+
+func try_allocate(name string, input []chan message, freeList <-chan int) (int, string) {
+	var i, httpStatus int
+	var httpMsg string
+	select {
+	case i = <-freeList:
+		output := make(chan bool)
+		res := resource{id: i, free: false, owner: name}
+		msg := message{data: res, ch: output}
+		input[i] <- msg
+		result := <-output
+		if result == true {
+			httpStatus = 200
+			httpMsg = fmt.Sprintf("r%d\n", i+1)
+		}
+	default:
+		httpStatus = 503
+		httpMsg = "Out of resources.\n"
+	}
+	return httpStatus, httpMsg
+}
+
+func try_deallocate(id int, input []chan message, freeList <-chan int) (int, string) {
+	id--
+	var httpStatus int
+	var httpMsg string
+	output := make(chan bool)
+	res := resource{id: id, free: true, owner: ""}
+	msg := message{data: res, ch: output}
+	input[id] <- msg
+	result := <-output
+	if result == true {
+		httpStatus = 204
+		httpMsg = ""
+	} else {
+		httpMsg = "Not allocated\n"
+		httpStatus = 404
+	}
+	return httpStatus, httpMsg
 }
 
 func main() {
@@ -80,43 +112,39 @@ func main() {
 
 	// Init arr
 	arr := aresource{members: []resource{}}
+	freeList := make(chan int, appConfig.Limit)
 	var input []chan message
 	for i := 0; i < appConfig.Limit; i++ {
 		r := resource{i + 1, true, ""}
 		arr.members = append(arr.members, r)
 		ch := make(chan message, 10)
 		input = append(input, ch)
-		go worker(ch, &arr)
+		freeList <- i
+		go worker(ch, &arr, freeList)
 	}
 
 	//slice.Sort(arr.members, arr.Less)
-	fmt.Println("arr: ", arr)
+	//fmt.Println("arr: ", arr)
 
 	// Starting gin gonic
 	server := gin.Default()
 
 	server.GET("/allocate/:name", func(c *gin.Context) {
-		http_status := http.StatusCreated
-		http_msg := "Ops.\n"
-		for {
-			free, i := arr.free()
-			if free == false {
-				http_status = http.StatusServiceUnavailable
-				http_msg = "Out of resources.\n"
-				break
-			} else {
-				output := make(chan bool)
-				res := resource{id: i, free: false, owner: c.Param("name")}
-				msg := message{data: res, ch: output}
-				input[i] <- msg
-				result := <-output
-				if result == true {
-					http_msg = fmt.Sprintf("r%d\n", i+1)
-					break
-				}
-			}
+		httpStatus, httpMsg := try_allocate(c.Param("name"), input, freeList)
+		c.String(httpStatus, httpMsg)
+	})
+
+	server.GET("/deallocate/r:id", func(c *gin.Context) {
+		var httpStatus int
+		var httpMsg string
+		id, err := strconv.Atoi(c.Param("id"))
+		if err != nil && id <= len(input) {
+			httpMsg = "Not allocated\n"
+			httpStatus = 404
+		} else {
+			httpStatus, httpMsg = try_deallocate(id, input, freeList)
 		}
-		c.String(http_status, http_msg)
+		c.String(httpStatus, httpMsg)
 	})
 
 	server.Run(fmt.Sprintf(":%d", appConfig.Port))
