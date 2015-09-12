@@ -43,20 +43,22 @@ func (a *aresource) Less(i, j int) bool {
 
 func worker(c <-chan message, arr *aresource, freeList chan<- int) {
 	for msg := range c {
-		//fmt.Println("Got message ", msg, " for ", arr)
-		current := arr.members[msg.data.id].free
-		if msg.data.free != current {
-			arr.members[msg.data.id] = msg.data
-			if msg.data.free == true {
-				freeList <- msg.data.id
-			}
-			msg.ch <- true
-		} else {
+		if len(arr.members) < msg.data.id || msg.data.id < 0 {
 			msg.ch <- false
+		} else {
+			current := arr.members[msg.data.id].free
+			if msg.data.free != current {
+				arr.members[msg.data.id] = msg.data
+				if msg.data.free == true {
+					freeList <- msg.data.id
+				}
+				msg.ch <- true
+			} else {
+				msg.ch <- false
+			}
 		}
 		close(msg.ch)
 	}
-
 }
 
 func choose_worker(i int, n int) int {
