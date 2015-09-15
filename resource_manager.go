@@ -1,35 +1,29 @@
-package main
+package resource_manager
 
 import (
-	"encoding/json"
-	"fmt"
+	//"log"
 	//"github.com/bradfitz/slice"
+	"fmt"
 	"github.com/dgryski/go-jump"
 	"github.com/gin-gonic/gin"
-	"io/ioutil"
-	"log"
 	"strconv"
 )
 
-type config struct {
-	Port    int
-	Limit   int
-	Workers int
-}
-
-type resource struct {
+type Resource struct {
 	id    int
 	free  bool
 	owner string
 }
 
-type message struct {
-	data resource
+type Message struct {
+	data Resource
 	ch   chan bool
 }
 
-type aresource struct {
-	members []resource
+type Resources struct {
+	members  []Resource
+	input    []chan Message
+	freeList chan int
 }
 
 /*
@@ -41,16 +35,23 @@ func (a *aresource) Less(i, j int) bool {
 }
 */
 
-func worker(c <-chan message, arr *aresource, freeList chan<- int) {
+// Simple and fast hashring
+func choose_worker(i int, n int) int {
+	i64 := uint64(i)
+	place := jump.Hash(i64, n)
+	return int(place)
+}
+
+func (a *Resources) worker(c <-chan Message) {
 	for msg := range c {
-		if len(arr.members) < msg.data.id || msg.data.id < 0 {
+		if len(a.members) < msg.data.id || msg.data.id < 0 {
 			msg.ch <- false
 		} else {
-			current := arr.members[msg.data.id].free
+			current := a.members[msg.data.id].free
 			if msg.data.free != current {
-				arr.members[msg.data.id] = msg.data
+				a.members[msg.data.id] = msg.data
 				if msg.data.free == true {
-					freeList <- msg.data.id
+					a.freeList <- msg.data.id
 				}
 				msg.ch <- true
 			} else {
@@ -61,21 +62,16 @@ func worker(c <-chan message, arr *aresource, freeList chan<- int) {
 	}
 }
 
-func choose_worker(i int, n int) int {
-	i64 := uint64(i)
-	place := jump.Hash(i64, n)
-	return int(place)
-}
-func try_allocate(name string, input []chan message, freeList <-chan int, workers int) (int, string) {
+func (a *Resources) try_allocate(name string, workers int) (int, string) {
 	var i, httpStatus int
 	var httpMsg string
 	select {
-	case i = <-freeList:
+	case i = <-a.freeList:
 		output := make(chan bool)
-		res := resource{id: i, free: false, owner: name}
-		msg := message{data: res, ch: output}
+		res := Resource{id: i, free: false, owner: name}
+		msg := Message{data: res, ch: output}
 		place := choose_worker(i, workers)
-		input[place] <- msg
+		a.input[place] <- msg
 		result := <-output
 		if result == true {
 			httpStatus = 200
@@ -88,15 +84,15 @@ func try_allocate(name string, input []chan message, freeList <-chan int, worker
 	return httpStatus, httpMsg
 }
 
-func try_deallocate(id int, input []chan message, freeList <-chan int, workers int) (int, string) {
+func (a *Resources) try_deallocate(id int, workers int) (int, string) {
 	id--
 	var httpStatus int
 	var httpMsg string
 	output := make(chan bool)
-	res := resource{id: id, free: true, owner: ""}
-	msg := message{data: res, ch: output}
+	res := Resource{id: id, free: true, owner: ""}
+	msg := Message{data: res, ch: output}
 	place := choose_worker(id, workers)
-	input[place] <- msg
+	a.input[place] <- msg
 	result := <-output
 	if result == true {
 		httpStatus = 204
@@ -108,45 +104,42 @@ func try_deallocate(id int, input []chan message, freeList <-chan int, workers i
 	return httpStatus, httpMsg
 }
 
+func (a *Resources) list() string {
+	return fmt.Sprintf("%s", a.members)
+}
+
 func main() {
 
 	// Parsing config
-	var appConfig config
-	configFile, err := ioutil.ReadFile("config.json")
+	var appConfig Config
+	err := appConfig.Load("config.json")
 	if err != nil {
-		log.Fatal(err)
-	}
-	if err := json.Unmarshal(configFile, &appConfig); err != nil {
-		log.Fatal(err)
-	}
-	if appConfig.Port < 1 || appConfig.Limit < 1 || appConfig.Workers < 2 {
-		panic(fmt.Sprintf("Invalid config\n"))
+		panic(err)
 	}
 	fmt.Printf("Loaded config: port %d, limit %d, workers %d\n", appConfig.Port, appConfig.Limit, appConfig.Workers)
 
 	// Init arr
-	arr := aresource{members: []resource{}}
+	arr := Resources{}
 
-	freeList := make(chan int, appConfig.Limit)
-	var input []chan message
+	arr.freeList = make(chan int, appConfig.Limit)
 
 	for i := 0; i < appConfig.Limit; i++ {
-		r := resource{i + 1, true, ""}
-		freeList <- i
+		r := Resource{i + 1, true, ""}
+		arr.freeList <- i
 		arr.members = append(arr.members, r)
 	}
 
 	for i := 0; i < appConfig.Workers; i++ {
-		ch := make(chan message, 10)
-		input = append(input, ch)
-		go worker(ch, &arr, freeList)
+		ch := make(chan Message, 10)
+		arr.input = append(arr.input, ch)
+		go arr.worker(ch)
 	}
 
 	// Starting gin gonic
 	server := gin.Default()
 
 	server.GET("/allocate/:name", func(c *gin.Context) {
-		httpStatus, httpMsg := try_allocate(c.Param("name"), input, freeList, appConfig.Workers)
+		httpStatus, httpMsg := arr.try_allocate(c.Param("name"), appConfig.Workers)
 		c.String(httpStatus, httpMsg)
 	})
 
@@ -154,12 +147,18 @@ func main() {
 		var httpStatus int
 		var httpMsg string
 		id, err := strconv.Atoi(c.Param("id"))
-		if err != nil && id <= len(input) {
+		if err != nil && id <= len(arr.input) {
 			httpMsg = "Not allocated\n"
 			httpStatus = 404
 		} else {
-			httpStatus, httpMsg = try_deallocate(id, input, freeList, appConfig.Workers)
+			httpStatus, httpMsg = arr.try_deallocate(id, appConfig.Workers)
 		}
+		c.String(httpStatus, httpMsg)
+	})
+
+	server.GET("/list", func(c *gin.Context) {
+		httpStatus := 200
+		httpMsg := arr.list()
 		c.String(httpStatus, httpMsg)
 	})
 
