@@ -1,4 +1,4 @@
-package resource_manager
+package main
 
 import (
 	//"log"
