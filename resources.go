@@ -92,3 +92,20 @@ func (a *Resources) try_deallocate(id int, workers int) (int, string) {
 func (a *Resources) list() string {
 	return fmt.Sprintf("%s", a.members)
 }
+
+func (a *Resources) Init(c Config) {
+
+	a.freeList = make(chan int, c.Limit)
+
+	for i := 0; i < c.Limit; i++ {
+		r := Resource{i + 1, true, ""}
+		a.freeList <- i
+		a.members = append(a.members, r)
+	}
+
+	for i := 0; i < c.Workers; i++ {
+		ch := make(chan Message, 10)
+		a.input = append(a.input, ch)
+		go a.worker(ch)
+	}
+}

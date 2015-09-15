@@ -4,6 +4,7 @@ import (
 	//"log"
 	//"github.com/bradfitz/slice"
 	"fmt"
+	//"github.com/davecheney/profile"
 	"github.com/dgryski/go-jump"
 	"github.com/gin-gonic/gin"
 	"strconv"
@@ -22,6 +23,7 @@ func choose_worker(i int, n int) int {
 }
 
 func main() {
+	//defer profile.Start(profile.CPUProfile).Stop()
 
 	// Parsing config
 	var appConfig Config
@@ -29,24 +31,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Loaded config: port %d, limit %d, workers %d\n", appConfig.Port, appConfig.Limit, appConfig.Workers)
 
 	// Init arr
-	arr := Resources{}
-
-	arr.freeList = make(chan int, appConfig.Limit)
-
-	for i := 0; i < appConfig.Limit; i++ {
-		r := Resource{i + 1, true, ""}
-		arr.freeList <- i
-		arr.members = append(arr.members, r)
-	}
-
-	for i := 0; i < appConfig.Workers; i++ {
-		ch := make(chan Message, 10)
-		arr.input = append(arr.input, ch)
-		go arr.worker(ch)
-	}
+	var arr Resources
+	arr.Init(appConfig)
 
 	// Starting gin gonic
 	server := gin.Default()
