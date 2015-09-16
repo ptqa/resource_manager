@@ -68,5 +68,11 @@ func main() {
 		c.String(httpStatus, httpMsg)
 	})
 
+	server.NoRoute(func(c *gin.Context) {
+		httpStatus := 400
+		httpMsg := "Bad request.\n"
+		c.String(httpStatus, httpMsg)
+	})
+
 	server.Run(fmt.Sprintf(":%d", appConfig.Port))
 }
