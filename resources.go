@@ -154,3 +154,14 @@ func (a *Resources) search(s string) string {
 	found += "]\n"
 	return found
 }
+
+func (a *Resources) Reset(workers int) {
+	for i := range a.members {
+		output := make(chan bool)
+		res := Resource{Id: i, Free: true, Owner: ""}
+		msg := Message{data: res, ch: output}
+		place := choose_worker(i, workers)
+		a.input[place] <- msg
+		<-output
+	}
+}

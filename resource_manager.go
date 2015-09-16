@@ -61,5 +61,12 @@ func main() {
 		c.String(httpStatus, httpMsg)
 	})
 
+	server.GET("/reset", func(c *gin.Context) {
+		httpStatus := 204
+		httpMsg := ""
+		arr.Reset(appConfig.Workers)
+		c.String(httpStatus, httpMsg)
+	})
+
 	server.Run(fmt.Sprintf(":%d", appConfig.Port))
 }
