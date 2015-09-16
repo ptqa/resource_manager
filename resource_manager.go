@@ -55,5 +55,11 @@ func main() {
 		c.String(httpStatus, httpMsg)
 	})
 
+	server.GET("/list/:name", func(c *gin.Context) {
+		httpStatus := 200
+		httpMsg := arr.search(c.Param("name"))
+		c.String(httpStatus, httpMsg)
+	})
+
 	server.Run(fmt.Sprintf(":%d", appConfig.Port))
 }

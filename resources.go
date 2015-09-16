@@ -139,3 +139,18 @@ func (a *Resources) Init(c Config) {
 		go a.worker(ch)
 	}
 }
+
+func (a *Resources) search(s string) string {
+	// My own json generator, yeah
+	found := "["
+	for i := range a.members {
+		if !a.members[i].Free && a.members[i].Owner == s {
+			if found != "[" {
+				found += ","
+			}
+			found += "\"r" + (strconv.Itoa(a.members[i].Id + 1)) + "\""
+		}
+	}
+	found += "]\n"
+	return found
+}
