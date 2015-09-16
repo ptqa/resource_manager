@@ -4,18 +4,27 @@ import (
 	//"log"
 	//"github.com/bradfitz/slice"
 	"fmt"
+	"github.com/dgryski/go-jump"
+	"strconv"
 )
 
 type Resource struct {
-	id    int
-	free  bool
-	owner string
+	Id    int    `json:"id"`
+	Free  bool   `json:"free"`
+	Owner string `json:"owner"`
 }
 
 type Resources struct {
 	members  []Resource
 	input    []chan Message
 	freeList chan int
+}
+
+// Simple and fast hashring
+func choose_worker(i int, n int) int {
+	i64 := uint64(i)
+	place := jump.Hash(i64, n)
+	return int(place)
 }
 
 /*
@@ -29,14 +38,14 @@ func (a *aresource) Less(i, j int) bool {
 
 func (a *Resources) worker(c <-chan Message) {
 	for msg := range c {
-		if len(a.members) < msg.data.id || msg.data.id < 0 {
+		if len(a.members) < msg.data.Id || msg.data.Id < 0 {
 			msg.ch <- false
 		} else {
-			current := a.members[msg.data.id].free
-			if msg.data.free != current {
-				a.members[msg.data.id] = msg.data
-				if msg.data.free == true {
-					a.freeList <- msg.data.id
+			current := a.members[msg.data.Id].Free
+			if msg.data.Free != current {
+				a.members[msg.data.Id] = msg.data
+				if msg.data.Free == true {
+					a.freeList <- msg.data.Id
 				}
 				msg.ch <- true
 			} else {
@@ -53,7 +62,7 @@ func (a *Resources) try_allocate(name string, workers int) (int, string) {
 	select {
 	case i = <-a.freeList:
 		output := make(chan bool)
-		res := Resource{id: i, free: false, owner: name}
+		res := Resource{Id: i, Free: false, Owner: name}
 		msg := Message{data: res, ch: output}
 		place := choose_worker(i, workers)
 		a.input[place] <- msg
@@ -74,7 +83,7 @@ func (a *Resources) try_deallocate(id int, workers int) (int, string) {
 	var httpStatus int
 	var httpMsg string
 	output := make(chan bool)
-	res := Resource{id: id, free: true, owner: ""}
+	res := Resource{Id: id, Free: true, Owner: ""}
 	msg := Message{data: res, ch: output}
 	place := choose_worker(id, workers)
 	a.input[place] <- msg
@@ -90,7 +99,28 @@ func (a *Resources) try_deallocate(id int, workers int) (int, string) {
 }
 
 func (a *Resources) list() string {
-	return fmt.Sprintf("%s", a.members)
+	// My own json generator, yeah
+	allocated := "{"
+	deallocated := "["
+	for i := range a.members {
+		if a.members[i].Free {
+			if deallocated != "[" {
+				deallocated += ","
+			}
+			deallocated += "\"r" + (strconv.Itoa(a.members[i].Id + 1)) + "\""
+		} else {
+			if allocated != "{" {
+				allocated += ","
+			}
+			allocated += "\"r" + (strconv.Itoa(a.members[i].Id + 1)) + "\":\"" + a.members[i].Owner + "\""
+		}
+	}
+	allocated += "}"
+	deallocated += "]"
+	if allocated == "{}" {
+		allocated = "[]"
+	}
+	return "{\"allocated\":" + allocated + "," + "\"deallocated\":" + deallocated + "}\n"
 }
 
 func (a *Resources) Init(c Config) {
@@ -98,7 +128,7 @@ func (a *Resources) Init(c Config) {
 	a.freeList = make(chan int, c.Limit)
 
 	for i := 0; i < c.Limit; i++ {
-		r := Resource{i + 1, true, ""}
+		r := Resource{i, true, ""}
 		a.freeList <- i
 		a.members = append(a.members, r)
 	}

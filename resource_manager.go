@@ -5,7 +5,6 @@ import (
 	//"github.com/bradfitz/slice"
 	"fmt"
 	//"github.com/davecheney/profile"
-	"github.com/dgryski/go-jump"
 	"github.com/gin-gonic/gin"
 	"strconv"
 )
@@ -13,13 +12,6 @@ import (
 type Message struct {
 	data Resource
 	ch   chan bool
-}
-
-// Simple and fast hashring
-func choose_worker(i int, n int) int {
-	i64 := uint64(i)
-	place := jump.Hash(i64, n)
-	return int(place)
 }
 
 func main() {
