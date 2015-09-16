@@ -1,17 +1,16 @@
-package main
+package resource_manager
 
 import (
-	//"log"
-	//"github.com/bradfitz/slice"
-	"fmt"
+	"errors"
+	//	"fmt"
 	"github.com/dgryski/go-jump"
 	"strconv"
 )
 
 type Resource struct {
-	Id    int    `json:"id"`
-	Free  bool   `json:"free"`
-	Owner string `json:"owner"`
+	Id    int
+	Free  bool
+	Owner string
 }
 
 type Resources struct {
@@ -26,15 +25,6 @@ func choose_worker(i int, n int) int {
 	place := jump.Hash(i64, n)
 	return int(place)
 }
-
-/*
-func (a *aresource) Less(i, j int) bool {
-	if a.members[i].free == true && a.members[j].free == false {
-		return true
-	}
-	return false
-}
-*/
 
 func (a *Resources) worker(c <-chan Message) {
 	for msg := range c {
@@ -56,11 +46,9 @@ func (a *Resources) worker(c <-chan Message) {
 	}
 }
 
-func (a *Resources) try_allocate(name string, workers int) (int, string) {
-	var i, httpStatus int
-	var httpMsg string
+func (a *Resources) try_allocate(name string, workers int) (int, error) {
 	select {
-	case i = <-a.freeList:
+	case i := <-a.freeList:
 		output := make(chan bool)
 		res := Resource{Id: i, Free: false, Owner: name}
 		msg := Message{data: res, ch: output}
@@ -68,37 +56,29 @@ func (a *Resources) try_allocate(name string, workers int) (int, string) {
 		a.input[place] <- msg
 		result := <-output
 		if result == true {
-			httpStatus = 200
-			httpMsg = fmt.Sprintf("r%d\n", i+1)
+			return i + 1, nil
 		}
 	default:
-		httpStatus = 503
-		httpMsg = "Out of resources.\n"
+		return 0, errors.New("Failed")
 	}
-	return httpStatus, httpMsg
+	return 0, errors.New("Failed")
 }
 
-func (a *Resources) try_deallocate(id int, workers int) (int, string) {
+func (a *Resources) try_deallocate(id int, workers int) error {
 	id--
-	var httpStatus int
-	var httpMsg string
 	output := make(chan bool)
 	res := Resource{Id: id, Free: true, Owner: ""}
 	msg := Message{data: res, ch: output}
 	place := choose_worker(id, workers)
 	a.input[place] <- msg
 	result := <-output
-	if result == true {
-		httpStatus = 204
-		httpMsg = ""
-	} else {
-		httpMsg = "Not allocated\n"
-		httpStatus = 404
+	if result == false {
+		return errors.New("Failed")
 	}
-	return httpStatus, httpMsg
+	return nil
 }
 
-func (a *Resources) list() string {
+func (a *Resources) List() string {
 	// My own json generator, yeah
 	allocated := "{"
 	deallocated := "["
@@ -140,7 +120,7 @@ func (a *Resources) Init(c Config) {
 	}
 }
 
-func (a *Resources) search(s string) string {
+func (a *Resources) Search(s string) string {
 	// My own json generator, yeah
 	found := "["
 	for i := range a.members {

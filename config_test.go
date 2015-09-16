@@ -1,0 +1,22 @@
+package resource_manager
+
+import (
+	. "github.com/smartystreets/goconvey/convey"
+	"testing"
+)
+
+func TestConf(t *testing.T) {
+	c := Config{}
+	Convey("Can load config_test.json without errors", t, func() {
+		err := c.Load("config_test.json")
+		So(err, ShouldBeNil)
+	})
+	Convey("Gives error if config file does not exist", t, func() {
+		err := c.Load("config_blabla.json")
+		So(err, ShouldNotBeNil)
+	})
+	Convey("Gives error if config file is not valid", t, func() {
+		err := c.Load("config_fail.json")
+		So(err, ShouldNotBeNil)
+	})
+}

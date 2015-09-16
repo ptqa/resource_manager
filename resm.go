@@ -1,4 +1,4 @@
-package main
+package resource_manager
 
 import (
 	//"log"
@@ -32,7 +32,14 @@ func main() {
 	server := gin.Default()
 
 	server.GET("/allocate/:name", func(c *gin.Context) {
-		httpStatus, httpMsg := arr.try_allocate(c.Param("name"), appConfig.Workers)
+		httpStatus := 200
+		var httpMsg string
+		id, err := arr.try_allocate(c.Param("name"), appConfig.Workers)
+		if err != nil {
+			httpMsg = "Out of resources.\n"
+			httpStatus = 503
+		}
+		httpMsg = "r" + strconv.Itoa(id) + "\n"
 		c.String(httpStatus, httpMsg)
 	})
 
@@ -44,20 +51,24 @@ func main() {
 			httpMsg = "Not allocated\n"
 			httpStatus = 404
 		} else {
-			httpStatus, httpMsg = arr.try_deallocate(id, appConfig.Workers)
+			err := arr.try_deallocate(id, appConfig.Workers)
+			if err == nil {
+				httpMsg = ""
+				httpStatus = 204
+			}
 		}
 		c.String(httpStatus, httpMsg)
 	})
 
 	server.GET("/list", func(c *gin.Context) {
 		httpStatus := 200
-		httpMsg := arr.list()
+		httpMsg := arr.List()
 		c.String(httpStatus, httpMsg)
 	})
 
 	server.GET("/list/:name", func(c *gin.Context) {
 		httpStatus := 200
-		httpMsg := arr.search(c.Param("name"))
+		httpMsg := arr.Search(c.Param("name"))
 		c.String(httpStatus, httpMsg)
 	})
 
