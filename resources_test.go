@@ -44,6 +44,10 @@ func TestResources(t *testing.T) {
 		So(list, ShouldNotContainSubstring, "bob")
 	})
 
+	Convey("Deallocating invalid id gives error", t, func() {
+		err := a.try_deallocate(1, c.Workers)
+		So(err, ShouldNotBeNil)
+	})
 	Convey("Deallocating removes user", t, func() {
 		john, _ := a.try_allocate("john", c.Workers)
 		a.try_allocate("ted", c.Workers)
