@@ -30,6 +30,8 @@ Resource manager uses [goconvey](http://goconvey.co/) for testing. Running and c
      go get github.com/smartystreets/goconvey
      $GOPATH/bin/goconvey
      
+After opening a broser at http://127.1:8080/ you should be able to see somethin like that:
+![goconvey example](goconvey.png?raw=true)
 
 ## Runing in docker
 
