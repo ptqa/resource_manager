@@ -1,5 +1,5 @@
 {
  "Port":3000,
- "Limit":5,
- "Workers":128
+ "Limit":100,
+ "Workers":64
 }

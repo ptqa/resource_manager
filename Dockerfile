@@ -1,6 +1,6 @@
 FROM golang:onbuild
-WORKDIR /gopath/src/github.com/ptqa/resource_manager
-ADD . /gopath/src/github.com/ptqa/resource_manager
+WORKDIR /go/src/github.com/ptqa/resource_manager
+ADD . /go/src/github.com/ptqa/resource_manager
+ADD run_docker.sh /tmp/
 RUN go get github.com/ptqa/resource_manager
-#ENTRYPOINT ["/gopath/bin/app"]
-#CMD ["/gopath/bin/resource_manager"]
+CMD ["/tmp/run_docker.sh"]
