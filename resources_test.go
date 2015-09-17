@@ -68,4 +68,11 @@ func TestResources(t *testing.T) {
 		So(bob_search, ShouldContainSubstring, "[\"r1\"]")
 		So(alice_search, ShouldContainSubstring, "[\"r2\"]")
 	})
+	Convey("Search works properly for several resources", t, func() {
+		a.Reset(c.Workers)
+		a.try_allocate("bob", c.Workers)
+		a.try_allocate("bob", c.Workers)
+		bob_search := a.Search("bob")
+		So(bob_search, ShouldContainSubstring, "[\"r1\",\"r2\"]")
+	})
 }

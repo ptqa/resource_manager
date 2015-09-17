@@ -15,8 +15,12 @@ func TestConf(t *testing.T) {
 		err := c.Load("config_blabla.json")
 		So(err, ShouldNotBeNil)
 	})
+	Convey("Gives error if config file is not valid json", t, func() {
+		err := c.Load("test_configs/config_fail.json")
+		So(err, ShouldNotBeNil)
+	})
 	Convey("Gives error if config file is not valid", t, func() {
-		err := c.Load("test_config/config_fail.json")
+		err := c.Load("test_configs/config_fail2.json")
 		So(err, ShouldNotBeNil)
 	})
 }

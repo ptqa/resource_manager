@@ -15,7 +15,7 @@ type Config struct {
 }
 
 func (c *Config) Load(f string) error {
-	configFile, err := ioutil.ReadFile("config.json")
+	configFile, err := ioutil.ReadFile(f)
 	if err != nil {
 		return err
 	}
