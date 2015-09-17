@@ -1,8 +1,7 @@
-package resource_manager
+package main
 
 import (
 	"errors"
-	//	"fmt"
 	"github.com/dgryski/go-jump"
 	"strconv"
 )

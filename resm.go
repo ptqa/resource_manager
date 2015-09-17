@@ -1,10 +1,7 @@
-package resource_manager
+package main
 
 import (
-	//"log"
-	//"github.com/bradfitz/slice"
 	"fmt"
-	//"github.com/davecheney/profile"
 	"github.com/gin-gonic/gin"
 	"strconv"
 )

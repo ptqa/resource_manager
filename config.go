@@ -1,8 +1,6 @@
-package resource_manager
+package main
 
 import (
-	//"log"
-	//"github.com/bradfitz/slice"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
