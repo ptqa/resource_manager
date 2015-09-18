@@ -6,6 +6,7 @@ import (
 	"strconv"
 )
 
+// struct for change request
 type Message struct {
 	data Resource
 	ch   chan bool
@@ -31,7 +32,7 @@ func main() {
 	server.GET("/allocate/:name", func(c *gin.Context) {
 		httpStatus := 200
 		var httpMsg string
-		id, err := arr.try_allocate(c.Param("name"), appConfig.Workers)
+		id, err := arr.tryAllocate(c.Param("name"), appConfig.Workers)
 		if err != nil {
 			httpMsg = "Out of resources.\n"
 			httpStatus = 503
@@ -48,7 +49,7 @@ func main() {
 			httpMsg = "Not allocated\n"
 			httpStatus = 404
 		} else {
-			err := arr.try_deallocate(id, appConfig.Workers)
+			err := arr.tryDeallocate(id, appConfig.Workers)
 			if err == nil {
 				httpMsg = ""
 				httpStatus = 204

@@ -6,12 +6,17 @@ import (
 	"strconv"
 )
 
+// Resource
+// basic resource can have owner
 type Resource struct {
 	Id    int
 	Free  bool
 	Owner string
 }
 
+// collection of Resources
+// input channels for change requests
+// freeList chan of free resources
 type Resources struct {
 	members  []Resource
 	input    []chan Message
@@ -19,12 +24,13 @@ type Resources struct {
 }
 
 // Simple and fast hashring
-func choose_worker(i int, n int) int {
+func chooseWorker(i int, n int) int {
 	i64 := uint64(i)
 	place := jump.Hash(i64, n)
 	return int(place)
 }
 
+// Worker that proccess change requests
 func (a *Resources) worker(c <-chan Message) {
 	for msg := range c {
 		if len(a.members) < msg.data.Id || msg.data.Id < 0 {
@@ -45,13 +51,13 @@ func (a *Resources) worker(c <-chan Message) {
 	}
 }
 
-func (a *Resources) try_allocate(name string, workers int) (int, error) {
+func (a *Resources) tryAllocate(name string, workers int) (int, error) {
 	select {
 	case i := <-a.freeList:
 		output := make(chan bool)
 		res := Resource{Id: i, Free: false, Owner: name}
 		msg := Message{data: res, ch: output}
-		place := choose_worker(i, workers)
+		place := chooseWorker(i, workers)
 		a.input[place] <- msg
 		result := <-output
 		if result == true {
@@ -63,12 +69,12 @@ func (a *Resources) try_allocate(name string, workers int) (int, error) {
 	return 0, errors.New("Failed")
 }
 
-func (a *Resources) try_deallocate(id int, workers int) error {
+func (a *Resources) tryDeallocate(id int, workers int) error {
 	id--
 	output := make(chan bool)
 	res := Resource{Id: id, Free: true, Owner: ""}
 	msg := Message{data: res, ch: output}
-	place := choose_worker(id, workers)
+	place := chooseWorker(id, workers)
 	a.input[place] <- msg
 	result := <-output
 	if result == false {
@@ -77,6 +83,7 @@ func (a *Resources) try_deallocate(id int, workers int) error {
 	return nil
 }
 
+// shows all resources as JSON
 func (a *Resources) List() string {
 	// My own json generator, yeah
 	allocated := "{"
@@ -102,8 +109,8 @@ func (a *Resources) List() string {
 	return "{\"allocated\":" + allocated + "," + "\"deallocated\":" + deallocated + "}\n"
 }
 
+// Initialize resources and start workers
 func (a *Resources) Init(c Config) {
-
 	a.freeList = make(chan int, c.Limit)
 
 	for i := 0; i < c.Limit; i++ {
@@ -119,6 +126,7 @@ func (a *Resources) Init(c Config) {
 	}
 }
 
+// Search for resources with name == s
 func (a *Resources) Search(s string) string {
 	// My own json generator, yeah
 	found := "["
@@ -134,12 +142,13 @@ func (a *Resources) Search(s string) string {
 	return found
 }
 
+// Send request to free all resources
 func (a *Resources) Reset(workers int) {
 	for i := range a.members {
 		output := make(chan bool)
 		res := Resource{Id: i, Free: true, Owner: ""}
 		msg := Message{data: res, ch: output}
-		place := choose_worker(i, workers)
+		place := chooseWorker(i, workers)
 		a.input[place] <- msg
 		<-output
 	}
