@@ -1,4 +1,5 @@
 #!/bin/bash
+export GIN_MODE=release
 PORT=${PORT:-3000}
 LIMIT=${LIMIT:-10}
 WORKERS=${WORKERS:-16}
