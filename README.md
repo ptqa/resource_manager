@@ -3,7 +3,7 @@ Implemented for fun. Original task text can be found [here](http://machinezone.r
 
 ## Installation
     go get github.com/ptqa/resource_manager
-    go get github.com/ptqa/resource_manager
+    go install github.com/ptqa/resource_manager
     
 ## Running resource manager
 As written in golang can be runned as single binary:
