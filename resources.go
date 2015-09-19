@@ -70,11 +70,10 @@ func (a *Resources) tryAllocate(name string, workers int) (int, error) {
 }
 
 func (a *Resources) tryDeallocate(id int, workers int) error {
-	id--
 	output := make(chan bool)
-	res := Resource{Id: id, Free: true, Owner: ""}
+	res := Resource{Id: id - 1, Free: true, Owner: ""}
 	msg := Message{data: res, ch: output}
-	place := chooseWorker(id, workers)
+	place := chooseWorker(id-1, workers)
 	a.input[place] <- msg
 	result := <-output
 	if result == false {

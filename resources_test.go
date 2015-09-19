@@ -6,7 +6,7 @@ import (
 )
 
 func TestResources(t *testing.T) {
-	c := Config{3000, 2, 1}
+	c := Config{3000, 2, 4}
 	a := Resources{}
 	a.Init(c)
 	Convey("Empty valid list", t, func() {
@@ -15,19 +15,19 @@ func TestResources(t *testing.T) {
 	})
 
 	Convey("Allocates first resource", t, func() {
-		answer, err := a.try_allocate("alice", c.Workers)
+		answer, err := a.tryAllocate("alice", c.Workers)
 		So(err, ShouldBeNil)
 		So(answer, ShouldEqual, 1)
 	})
 
 	Convey("Allocates second resource", t, func() {
-		answer, err := a.try_allocate("bob", c.Workers)
+		answer, err := a.tryAllocate("bob", c.Workers)
 		So(err, ShouldBeNil)
 		So(answer, ShouldEqual, 2)
 	})
 
 	Convey("Limit exists", t, func() {
-		_, err := a.try_allocate("limit", c.Workers)
+		_, err := a.tryAllocate("limit", c.Workers)
 		So(err, ShouldNotBeNil)
 	})
 
@@ -45,13 +45,13 @@ func TestResources(t *testing.T) {
 	})
 
 	Convey("Deallocating invalid id gives error", t, func() {
-		err := a.try_deallocate(1, c.Workers)
+		err := a.tryDeallocate(1, c.Workers)
 		So(err, ShouldNotBeNil)
 	})
 	Convey("Deallocating removes user", t, func() {
-		john, _ := a.try_allocate("john", c.Workers)
-		a.try_allocate("ted", c.Workers)
-		err := a.try_deallocate(john, c.Workers)
+		john, _ := a.tryAllocate("john", c.Workers)
+		a.tryAllocate("ted", c.Workers)
+		err := a.tryDeallocate(john, c.Workers)
 		list := a.List()
 		So(err, ShouldBeNil)
 		So(list, ShouldNotContainSubstring, "john")
@@ -59,8 +59,8 @@ func TestResources(t *testing.T) {
 	})
 	Convey("Search works properly", t, func() {
 		a.Reset(c.Workers)
-		a.try_allocate("bob", c.Workers)
-		a.try_allocate("alice", c.Workers)
+		a.tryAllocate("bob", c.Workers)
+		a.tryAllocate("alice", c.Workers)
 		empty_search := a.Search("empty")
 		bob_search := a.Search("bob")
 		alice_search := a.Search("alice")
@@ -70,8 +70,8 @@ func TestResources(t *testing.T) {
 	})
 	Convey("Search works properly for several resources", t, func() {
 		a.Reset(c.Workers)
-		a.try_allocate("bob", c.Workers)
-		a.try_allocate("bob", c.Workers)
+		a.tryAllocate("bob", c.Workers)
+		a.tryAllocate("bob", c.Workers)
 		bob_search := a.Search("bob")
 		So(bob_search, ShouldContainSubstring, "[\"r1\",\"r2\"]")
 	})

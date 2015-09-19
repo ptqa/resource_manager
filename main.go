@@ -23,8 +23,8 @@ func main() {
 	}
 
 	// Init arr
-	var arr Resources
-	arr.Init(appConfig)
+	var resources Resources
+	resources.Init(appConfig)
 
 	// Starting gin gonic
 	server := gin.Default()
@@ -32,7 +32,7 @@ func main() {
 	server.GET("/allocate/:name", func(c *gin.Context) {
 		httpStatus := 200
 		var httpMsg string
-		id, err := arr.tryAllocate(c.Param("name"), appConfig.Workers)
+		id, err := resources.tryAllocate(c.Param("name"), appConfig.Workers)
 		if err != nil {
 			httpMsg = "Out of resources.\n"
 			httpStatus = 503
@@ -45,11 +45,11 @@ func main() {
 		var httpStatus int
 		var httpMsg string
 		id, err := strconv.Atoi(c.Param("id"))
-		if err != nil && id <= len(arr.input) {
+		if err != nil && id <= len(resources.input) {
 			httpMsg = "Not allocated\n"
 			httpStatus = 404
 		} else {
-			err := arr.tryDeallocate(id, appConfig.Workers)
+			err := resources.tryDeallocate(id, appConfig.Workers)
 			if err == nil {
 				httpMsg = ""
 				httpStatus = 204
@@ -60,20 +60,20 @@ func main() {
 
 	server.GET("/list", func(c *gin.Context) {
 		httpStatus := 200
-		httpMsg := arr.List()
+		httpMsg := resources.List()
 		c.String(httpStatus, httpMsg)
 	})
 
 	server.GET("/list/:name", func(c *gin.Context) {
 		httpStatus := 200
-		httpMsg := arr.Search(c.Param("name"))
+		httpMsg := resources.Search(c.Param("name"))
 		c.String(httpStatus, httpMsg)
 	})
 
 	server.GET("/reset", func(c *gin.Context) {
 		httpStatus := 204
 		httpMsg := ""
-		arr.Reset(appConfig.Workers)
+		resources.Reset(appConfig.Workers)
 		c.String(httpStatus, httpMsg)
 	})
 
