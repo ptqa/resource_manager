@@ -6,21 +6,24 @@ import (
 	"strconv"
 )
 
-// Resource
-// basic resource can have owner
-type Resource struct {
-	Id    int
-	Free  bool
-	Owner string
+// struct for sending request
+// to workers
+type Message struct {
+	data Resource  // new resource state
+	ch   chan bool // channel for getting result
 }
 
-// collection of Resources
-// input channels for change requests
-// freeList chan of free resources
+// Basic resource to store/access/change
+type Resource struct {
+	Id    int
+	Free  bool   // is resource owned?
+	Owner string // name of owner, '' if free
+}
+
 type Resources struct {
-	members  []Resource
-	input    []chan Message
-	freeList chan int
+	members  []Resource     // collection of Resources
+	input    []chan Message // input channels for change requests
+	freeList chan int       // freeList chan of free resources
 }
 
 // Simple and fast hashring
@@ -34,12 +37,15 @@ func chooseWorker(i int, n int) int {
 func (a *Resources) worker(c <-chan Message) {
 	for msg := range c {
 		if len(a.members) < msg.data.Id || msg.data.Id < 0 {
+			// resource is alredy in use or wrong id
 			msg.ch <- false
 		} else {
+			// set new resource state
 			current := a.members[msg.data.Id].Free
 			if msg.data.Free != current {
 				a.members[msg.data.Id] = msg.data
 				if msg.data.Free == true {
+					// new state is free? add it to free queue
 					a.freeList <- msg.data.Id
 				}
 				msg.ch <- true
@@ -51,6 +57,8 @@ func (a *Resources) worker(c <-chan Message) {
 	}
 }
 
+// Take free resource from queue and send new resource state (free)
+// to worker, then check result from channel
 func (a *Resources) tryAllocate(name string, workers int) (int, error) {
 	select {
 	case i := <-a.freeList:
@@ -69,6 +77,7 @@ func (a *Resources) tryAllocate(name string, workers int) (int, error) {
 	return 0, errors.New("Failed")
 }
 
+// Send resuurce state (busy) to worker and check result from channel
 func (a *Resources) tryDeallocate(id int, workers int) error {
 	output := make(chan bool)
 	res := Resource{Id: id - 1, Free: true, Owner: ""}
@@ -108,7 +117,7 @@ func (a *Resources) List() string {
 	return "{\"allocated\":" + allocated + "," + "\"deallocated\":" + deallocated + "}\n"
 }
 
-// Initialize resources and start workers
+// Create queue of free resources and create workers
 func (a *Resources) Init(c Config) {
 	a.freeList = make(chan int, c.Limit)
 

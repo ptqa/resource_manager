@@ -1,3 +1,5 @@
+// This file contains main function
+// and runs http server with gin
 package main
 
 import (
@@ -5,12 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"strconv"
 )
-
-// struct for change request
-type Message struct {
-	data Resource
-	ch   chan bool
-}
 
 func main() {
 	//defer profile.Start(profile.CPUProfile).Stop()
