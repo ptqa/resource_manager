@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"github.com/dgryski/go-jump"
 	"strconv"
@@ -91,36 +92,31 @@ func (a *Resources) tryDeallocate(id int, workers int) error {
 	return nil
 }
 
+type list struct {
+	Allocated   map[string]string `json:"allocated"`
+	Deallocated []string          `json:"dealloced"`
+}
+
 // shows all resources as JSON
 func (a *Resources) List() string {
-	// My own json generator, yeah
-	allocated := "{"
-	deallocated := "["
+	allocated := make(map[string]string)
+	var deallocated []string
 	for i := range a.members {
+		id := "r" + (strconv.Itoa(a.members[i].Id + 1))
 		if a.members[i].Free {
-			if deallocated != "[" {
-				deallocated += ","
-			}
-			deallocated += "\"r" + (strconv.Itoa(a.members[i].Id + 1)) + "\""
+			deallocated = append(deallocated, id)
 		} else {
-			if allocated != "{" {
-				allocated += ","
-			}
-			allocated += "\"r" + (strconv.Itoa(a.members[i].Id + 1)) + "\":\"" + a.members[i].Owner + "\""
+			allocated[id] = a.members[i].Owner
 		}
 	}
-	allocated += "}"
-	deallocated += "]"
-	if allocated == "{}" {
-		allocated = "[]"
-	}
-	return "{\"allocated\":" + allocated + "," + "\"deallocated\":" + deallocated + "}\n"
+	list := list{allocated, deallocated}
+	json_list, _ := json.Marshal(list)
+	return string(json_list)
 }
 
 // Create queue of free resources and create workers
 func (a *Resources) Init(c Config) {
 	a.freeList = make(chan int, c.Limit)
-
 	for i := 0; i < c.Limit; i++ {
 		r := Resource{i, true, ""}
 		a.freeList <- i
@@ -134,20 +130,24 @@ func (a *Resources) Init(c Config) {
 	}
 }
 
+type found_list []string
+
 // Search for resources with name == s
 func (a *Resources) Search(s string) string {
 	// My own json generator, yeah
-	found := "["
+	var found found_list
 	for i := range a.members {
 		if !a.members[i].Free && a.members[i].Owner == s {
-			if found != "[" {
-				found += ","
-			}
-			found += "\"r" + (strconv.Itoa(a.members[i].Id + 1)) + "\""
+			id := "r" + (strconv.Itoa(a.members[i].Id + 1))
+			found = append(found, id)
 		}
 	}
-	found += "]\n"
-	return found
+	if len(found) > 0 {
+		json_found, _ := json.Marshal(found)
+		return string(json_found)
+	} else {
+		return "\"[]\""
+	}
 }
 
 // Send request to free all resources

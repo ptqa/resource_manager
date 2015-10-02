@@ -11,7 +11,7 @@ func TestResources(t *testing.T) {
 	a.Init(c)
 	Convey("Empty valid list", t, func() {
 		list := a.List()
-		So(list, ShouldContainSubstring, "\"allocated\":[]")
+		So(list, ShouldContainSubstring, "\"allocated\":{}")
 	})
 
 	Convey("Allocates first resource", t, func() {
