@@ -1,4 +1,4 @@
-# Resource manager
+# Resource manager [![Build Status](https://travis-ci.org/ptqa/resource_manager.svg?branch=master)](https://travis-ci.org/ptqa/resource_manager)
 Implemented for fun. Original task text can be found [here](http://machinezone.ru/challenges/resource-manager) or check [local copy](https://github.com/ptqa/resource_manager/blob/master/TASK.txt).
 
 ## Installation
