@@ -5,6 +5,10 @@ go:
  - 1.5.1
  - release
  - tip
+before_install:
+ - go get github.com/axw/gocov/gocov
+ - go get github.com/mattn/goveralls
+ - if ! go get github.com/golang/tools/cmd/cover; then go get golang.org/x/tools/cmd/cover; fi
 
 script:
- - go test -v ./...
+ - $HOME/gopath/bin/goveralls -service=travis-ci
